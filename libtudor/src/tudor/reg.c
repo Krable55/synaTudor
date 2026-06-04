@@ -32,6 +32,7 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
         struct tudor_device *dev = (struct tudor_device*) ctx_obj;
 
         if(strcmp(val_name, "PairingInProcess") == 0) {
+            if(is_write && *buf_size == 0) { dev->state.pairing_in_process = false; return true; }
             if(buf && *buf_size >= 4) {
                 if(!is_write) *((int*) buf) = dev->state.pairing_in_process;
                 else dev->state.pairing_in_process = *((int*) buf) != 0;
@@ -40,6 +41,7 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
             if(!is_write) *val_type = WINREG_DWORD;
             return true;
         } else if(strcmp(val_name, "UnairingInProcess") == 0) {
+            if(is_write && *buf_size == 0) { dev->state.unpairing_in_process = false; return true; }
             if(buf && *buf_size >= 4) {
                 if(!is_write) *((int*) buf) = dev->state.unpairing_in_process;
                 else dev->state.unpairing_in_process = *((int*) buf) != 0;
@@ -48,6 +50,7 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
             if(!is_write) *val_type = WINREG_DWORD;
             return true;
         } else if(strcmp(val_name, "DeviceUpdateInProcess") == 0) {
+            if(is_write && *buf_size == 0) { dev->state.update_in_process = false; return true; }
             if(buf && *buf_size >= 4) {
                 if(!is_write) *((int*) buf) = dev->state.update_in_process;
                 else dev->state.update_in_process = *((int*) buf) != 0;
@@ -55,7 +58,7 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
             *buf_size = 4;
             if(!is_write) *val_type = WINREG_DWORD;
             return true;
-        } else if(strcmp(val_name, "deviceInitializeFailures") == 0) {
+        } else if(strcmp(val_name, "deviceInitializeFailures") == 0 || strcmp(val_name, "DeviceInitializeFailures") == 0) {
             if(buf && *buf_size >= 4) {
                 if(!is_write) *((int*) buf) = dev->state.init_fails;
                 else dev->state.init_fails = *((int*) buf);
@@ -63,10 +66,26 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
             *buf_size = 4;
             if(!is_write) *val_type = WINREG_DWORD;
             return true;
-        } else if(strcmp(val_name, "updateFirmwareFailureCount") == 0) {
+        } else if(strcmp(val_name, "updateFirmwareFailureCount") == 0 || strcmp(val_name, "UpdateFirmwareFailureCount") == 0) {
             if(buf && *buf_size >= 4) {
                 if(!is_write) *((int*) buf) = dev->state.update_fails;
                 else dev->state.update_fails = *((int*) buf);
+            } else if(is_write || buf) return false;
+            *buf_size = 4;
+            if(!is_write) *val_type = WINREG_DWORD;
+            return true;
+        } else if(strcmp(val_name, "SetOwnershipFailureCount") == 0) {
+            if(buf && *buf_size >= 4) {
+                if(!is_write) *((int*) buf) = dev->state.ownership_fails;
+                else dev->state.ownership_fails = *((int*) buf);
+            } else if(is_write || buf) return false;
+            *buf_size = 4;
+            if(!is_write) *val_type = WINREG_DWORD;
+            return true;
+        } else if(strcmp(val_name, "SensorLockFailureCount") == 0) {
+            if(buf && *buf_size >= 4) {
+                if(!is_write) *((int*) buf) = dev->state.sensor_lock_fails;
+                else dev->state.sensor_lock_fails = *((int*) buf);
             } else if(is_write || buf) return false;
             *buf_size = 4;
             if(!is_write) *val_type = WINREG_DWORD;
@@ -108,6 +127,21 @@ bool tudor_reg_handler(void *ctx, void *ctx_obj, const char *key_name, const cha
             }
         }
 
+        return false;
+    }
+
+    //Provide a stable MachineGuid for device pairing
+    if(!is_write && strcmp(key_name, "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography") == 0) {
+        if(strcmp(val_name, "MachineGuid") == 0) {
+            const char *guid = "{4c4c4544-0000-2010-8020-cac04f000000}";
+            size_t guid_len = strlen(guid) + 1;
+            if(buf && *buf_size >= guid_len) {
+                memcpy(buf, guid, guid_len);
+            } else if(buf) return false;
+            *buf_size = guid_len;
+            *val_type = WINREG_STR;
+            return true;
+        }
         return false;
     }
 
